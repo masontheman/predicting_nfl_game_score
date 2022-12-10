@@ -1,0 +1,535 @@
+# importing the dependencies 
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import LabelEncoder
+from sklearn import metrics
+from sklearn.metrics import accuracy_score
+from sklearn.metrics import mean_absolute_error 
+from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import GridSearchCV
+from sklearn.svm import SVR #check
+from sklearn.linear_model import Lasso #check
+from sklearn.linear_model import LinearRegression #check
+from sklearn.linear_model import LogisticRegression #check
+from sklearn.ensemble import RandomForestRegressor #check
+from sklearn.tree import DecisionTreeRegressor # check
+from xgboost import XGBRegressor #check
+from sklearn.linear_model import ElasticNet #check
+from sklearn.linear_model import SGDRegressor #check
+from sklearn.linear_model import BayesianRidge #check
+from sklearn.kernel_ridge import KernelRidge #check
+from lightgbm import LGBMRegressor #check
+
+!mkdir -p ~/.kaggle
+!cp kaggle.json ~/.kaggle/
+!chmod 600 ~/.kaggle/kaggle.json
+
+!kaggle datasets download -d cviaxmiwnptr/nfl-team-stats-20022019-espn
+
+from zipfile import ZipFile
+dataset = '/content/nfl-team-stats-20022019-espn.zip'
+
+with ZipFile(dataset,'r') as zip:
+  zip.extractall()
+  print('The dataset is extracted')
+
+nfl_data = pd.read_csv('/content/nfl_team_stats_2002-2021.csv')
+
+pd.set_option('display.max_columns', None)
+nfl_data.head()
+
+nfl_data.tail()
+
+def remove_dash_third_downs_away(row):
+  row.third_downs_away=int((round(int(row.third_downs_away[:row.third_downs_away.find('-')])/int(row.third_downs_away[row.third_downs_away.find('-')+1:]),2)*100))
+  return row
+nfl_data=nfl_data.apply(remove_dash_third_downs_away, axis='columns')
+  
+def remove_dash_third_downs_home(row):
+  row.third_downs_home=int((round(int(row.third_downs_home[:row.third_downs_home.find('-')])/int(row.third_downs_home[row.third_downs_home.find('-')+1:]),2)*100))
+  return row
+nfl_data=nfl_data.apply(remove_dash_third_downs_home, axis='columns')
+def remove_dash_fourth_downs_away(row):
+  try:row.fourth_downs_away=int((round(int(row.fourth_downs_away[:row.fourth_downs_away.find('-')])/int(row.fourth_downs_away[row.fourth_downs_away.find('-')+1:]),2)*100))
+  except:row.fourth_downs_away = int(0)
+  return row
+nfl_data=nfl_data.apply(remove_dash_fourth_downs_away, axis='columns',)
+def remove_dash_fourth_downs_home(row):
+  try:row.fourth_downs_home=int((round(int(row.fourth_downs_home[:row.fourth_downs_home.find('-')])/int(row.fourth_downs_home[row.fourth_downs_home.find('-')+1:]),2)*100))
+  except:row.fourth_downs_home = int(0)
+  return row
+nfl_data=nfl_data.apply(remove_dash_fourth_downs_home, axis='columns',)
+def remove_dash_comp_att_home(row):
+  try:row.comp_att_home=int((round(int(row.comp_att_home[:row.comp_att_home.find('-')])/int(row.comp_att_home[row.comp_att_home.find('-')+1:]),2)*100))
+  except:row.comp_att_home = int(0)
+  return row
+nfl_data=nfl_data.apply(remove_dash_comp_att_home, axis='columns',)
+def remove_dash_sacks_away(row):
+  try:row.sacks_away=int(row.sacks_away[:row.sacks_away.find('-')])
+  except:row.sacks_away = int(0)
+  return row
+nfl_data=nfl_data.apply(remove_dash_sacks_away, axis='columns',)
+def remove_dash_sacks_home(row):
+  try:row.sacks_home=int(row.sacks_home[:row.sacks_home.find('-')])
+  except:row.sacks_home = int(0)
+  return row
+nfl_data=nfl_data.apply(remove_dash_sacks_home, axis='columns',)
+def remove_dash_comp_att_away(row):
+  try:row.comp_att_away=int((round(int(row.comp_att_away[:row.comp_att_away.find('-')])/int(row.comp_att_away[row.comp_att_away.find('-')+1:]),2)*100))
+  except:row.comp_att_away =int(0)
+  return row
+nfl_data=nfl_data.apply(remove_dash_comp_att_away, axis='columns',)
+def remove_dash_penalties_away(row):
+  try:row.penalties_away=int(row.penalties_away[row.penalties_away.find('-')+1:])
+  except:row.penalties_away =int(0)
+  return row
+nfl_data=nfl_data.apply(remove_dash_penalties_away, axis='columns',)
+def remove_dash_penalties_home(row):
+  try:row.penalties_home=int(row.penalties_home[row.penalties_home.find('-')+1:])
+  except:row.penalties_home =int(0)
+  return row
+nfl_data=nfl_data.apply(remove_dash_penalties_home, axis='columns',)
+def remove_dash_redzone_away(row):
+  try:row.redzone_away=int((round(int(row.redzone_away[:row.redzone_away.find('-')])/int(row.redzone_away[row.redzone_away.find('-')+1:]),2)*100))
+  except:row.redzone_away =int(0)
+  return row
+nfl_data=nfl_data.apply(remove_dash_redzone_away, axis='columns',)
+def remove_dash_redzone_home(row):
+  try:row.redzone_home=int((round(int(row.redzone_home[:row.redzone_home.find('-')])/int(row.redzone_home[row.redzone_home.find('-')+1:]),2)*100))
+  except:row.redzone_home =int(0)
+  return row
+nfl_data=nfl_data.apply(remove_dash_redzone_home, axis='columns',)
+def remove_dash_possession_away(row):
+  row.possession_away=(int(row.possession_away[:row.possession_away.find(':')])*60) + int(row.possession_away[row.possession_away.find(':')+1:])
+  return row
+nfl_data=nfl_data.apply(remove_dash_possession_away, axis='columns')
+def remove_dash_possession_home(row):
+  row.possession_home=(int(row.possession_home[:row.possession_home.find(':')])*60) + int(row.possession_home[row.possession_home.find(':')+1:])
+  return row
+nfl_data=nfl_data.apply(remove_dash_possession_home, axis='columns')
+
+nfl_data.head()
+
+nfl_data.corr()
+
+nfl_data_without_date=nfl_data.drop(columns=['date','away','home'],axis=1)
+
+X = nfl_data_without_date.drop('score_home',axis=1)
+
+Y = nfl_data_without_date['score_home']
+print(Y)
+
+scaler = StandardScaler()
+X=scaler.fit_transform(X)
+
+X_train, X_test, Y_train, Y_test = train_test_split(X,Y, test_size =0.2,random_state=2)
+
+Logistic Regression
+>{'C': 1.0,
+ 'class_weight': None,
+ 'dual': False,
+ 'fit_intercept': True,
+ 'intercept_scaling': 1,
+ 'l1_ratio': None,
+ 'max_iter': 10000,
+ 'multi_class': 'auto',
+ 'n_jobs': None,
+ 'penalty': 'l2',
+ 'random_state': None,
+ 'solver': 'lbfgs',
+ 'tol': 0.0001,
+ 'verbose': 0,
+ 'warm_start': False}
+
+
+
+Random Forest Regressor
+> {'bootstrap': True,
+ 'ccp_alpha': 0.0,
+ 'criterion': 'squared_error',
+ 'max_depth': None,
+ 'max_features': 'auto',
+ 'max_leaf_nodes': None,
+ 'max_samples': None,
+ 'min_impurity_decrease': 0.0,
+ 'min_samples_leaf': 1,
+ 'min_samples_split': 2,
+ 'min_weight_fraction_leaf': 0.0,
+ 'n_estimators': 100,
+ 'n_jobs': None,
+ 'oob_score': False,
+ 'random_state': 0,
+ 'verbose': 0,
+ 'warm_start': False}
+
+
+
+DecisionTreeRegressor
+
+> {'ccp_alpha': 0.0,
+ 'criterion': 'squared_error',
+ 'max_depth': None,
+ 'max_features': None,
+ 'max_leaf_nodes': None,
+ 'min_impurity_decrease': 0.0,
+ 'min_samples_leaf': 1,
+ 'min_samples_split': 2,
+ 'min_weight_fraction_leaf': 0.0,
+ 'random_state': 0,
+ 'splitter': 'best'}
+
+
+
+
+Lasso Regression
+
+> {'alpha': 1.0,
+ 'copy_X': True,
+ 'fit_intercept': True,
+ 'max_iter': 1000,
+ 'normalize': 'deprecated',
+ 'positive': False,
+ 'precompute': False,
+ 'random_state': None,
+ 'selection': 'cyclic',
+ 'tol': 0.0001,
+ 'warm_start': False}
+
+
+
+Linear Regression
+
+> {'copy_X': True,
+ 'fit_intercept': True,
+ 'n_jobs': None,
+ 'normalize': 'deprecated',
+ 'positive': False}
+
+
+
+XGBRegressor
+> {'base_score': 0.5,
+ 'booster': 'gbtree',
+ 'colsample_bylevel': 1,
+ 'colsample_bynode': 1,
+ 'colsample_bytree': 1,
+ 'gamma': 0,
+ 'importance_type': 'gain',
+ 'learning_rate': 0.1,
+ 'max_delta_step': 0,
+ 'max_depth': 3,
+ 'min_child_weight': 1,
+ 'missing': None,
+ 'n_estimators': 100,
+ 'n_jobs': 1,
+ 'nthread': None,
+ 'objective': 'reg:linear',
+ 'random_state': 0,
+ 'reg_alpha': 0,
+ 'reg_lambda': 1,
+ 'scale_pos_weight': 1,
+ 'seed': None,
+ 'silent': None,
+ 'subsample': 1,
+ 'verbosity': 1}
+
+
+
+Support Vector Regression
+
+> {'C': 1.0,
+ 'cache_size': 200,
+ 'coef0': 0.0,
+ 'degree': 3,
+ 'epsilon': 0.1,
+ 'gamma': 'scale',
+ 'kernel': 'rbf',
+ 'max_iter': -1,
+ 'shrinking': True,
+ 'tol': 0.001,
+ 'verbose': False}
+
+
+
+Elastic Net Regression
+
+> {'alpha': 1.0,
+ 'copy_X': True,
+ 'fit_intercept': True,
+ 'l1_ratio': 0.5,
+ 'max_iter': 1000,
+ 'normalize': 'deprecated',
+ 'positive': False,
+ 'precompute': False,
+ 'random_state': None,
+ 'selection': 'cyclic',
+ 'tol': 0.0001,
+ 'warm_start': False}
+
+
+
+Stochastic Gradient Descent
+
+> {'alpha': 0.0001,
+ 'average': False,
+ 'early_stopping': False,
+ 'epsilon': 0.1,
+ 'eta0': 0.01,
+ 'fit_intercept': True,
+ 'l1_ratio': 0.15,
+ 'learning_rate': 'invscaling',
+ 'loss': 'squared_error',
+ 'max_iter': 1000,
+ 'n_iter_no_change': 5,
+ 'penalty': 'l2',
+ 'power_t': 0.25,
+ 'random_state': None,
+ 'shuffle': True,
+ 'tol': 0.001,
+ 'validation_fraction': 0.1,
+ 'verbose': 0,
+ 'warm_start': False}
+
+
+
+bayesian ridge regression
+
+>{'alpha_1': 1e-06,
+ 'alpha_2': 1e-06,
+ 'alpha_init': None,
+ 'compute_score': False,
+ 'copy_X': True,
+ 'fit_intercept': True,
+ 'lambda_1': 1e-06,
+ 'lambda_2': 1e-06,
+ 'lambda_init': None,
+ 'n_iter': 300,
+ 'normalize': 'deprecated',
+ 'tol': 0.001,
+ 'verbose': False}
+
+
+
+kernel ridge regression
+
+> {'alpha': 1,
+ 'coef0': 1,
+ 'degree': 3,
+ 'gamma': None,
+ 'kernel': 'linear',
+ 'kernel_params': None}
+
+
+
+Light Gradient Boosting
+
+> {'boosting_type': 'gbdt',
+ 'class_weight': None,
+ 'colsample_bytree': 1.0,
+ 'importance_type': 'split',
+ 'learning_rate': 0.1,
+ 'max_depth': -1,
+ 'min_child_samples': 20,
+ 'min_child_weight': 0.001,
+ 'min_split_gain': 0.0,
+ 'n_estimators': 100,
+ 'n_jobs': -1,
+ 'num_leaves': 31,
+ 'objective': None,
+ 'random_state': None,
+ 'reg_alpha': 0.0,
+ 'reg_lambda': 0.0,
+ 'silent': True,
+ 'subsample': 1.0,
+ 'subsample_for_bin': 200000,
+ 'subsample_freq': 0}
+
+
+
+Grid Search CV
+
+#{'copy_X': True, 'fit_intercept': True, 'n_jobs': None, 'normalize': 'deprecated', 'positive': False}
+list_of_C = [True,False]
+list_of_D =  [True,False]
+list_of_E =  [True,False]
+for c in list_of_C:
+  for d in list_of_D:
+    for e in list_of_E:
+        model = LinearRegression(copy_X=c,fit_intercept=d,normalize=e)
+        model.fit(X_train,Y_train)
+        X_train_prediciton = model.predict(X_train)
+        #training_data_accuracy = accuracy_score(X_train_prediciton,Y_train)
+        mean_aboslute_value_prediction_train = mean_absolute_error(X_train_prediciton,Y_train)
+          #print('Accuracy score of the training data : ', training_data_accuracy)
+        print('#####################################')
+        print('mean error of the training data : ', mean_aboslute_value_prediction_train)
+        X_test_prediciton = model.predict(X_test)
+          #test_data_accuracy = accuracy_score(X_test_prediciton,Y_test)
+        mean_aboslute_value_prediction_test = mean_absolute_error(X_test_prediciton,Y_test)
+          #print('Accuracy score of the test data : ', test_data_accuracy)
+        print('mean error of the test data : ', mean_aboslute_value_prediction_test)
+        input_data = (17,	20,	38,	33,	100,100,	137	,211,	165,	71,	302,282,	55,	63,	0	,4,	38,	22,	0,1,	2	,0,	2,	1	,94,	60,	25,	100	,9	,10	,0,	0	,1821	,1779	,16	)
+
+          # change the data to a numpy array
+        input_data_as_numpy_array = np.asarray(input_data) # will convert the tuple to an array
+
+          # reshape the array as we are prediciting for one instance 
+        input_data_reshaped = input_data_as_numpy_array.reshape(1,-1) #tell the model not 768 but for only one instance
+
+          # standardize the new input data as well just like we did above 
+        std_data = scaler.transform(input_data_reshaped)
+          #print(std_data)
+        prediction = model.predict(std_data)
+        print(prediction)
+        print(model.get_params(deep=True))
+        print('#####################################')
+
+MODELS_LIST_FOR_LOOP = [LogisticRegression(max_iter=10000),LGBMRegressor(),BayesianRidge(),SGDRegressor(),LinearRegression(),XGBRegressor(),RandomForestRegressor(random_state=0),KernelRidge(),ElasticNet(),SVR(),Lasso(),DecisionTreeRegressor(random_state=0)]
+for modely in MODELS_LIST_FOR_LOOP:
+  model = modely
+  model.fit(X_train,Y_train)
+  X_train_prediciton = model.predict(X_train)
+  #training_data_accuracy = accuracy_score(X_train_prediciton,Y_train)
+  mean_aboslute_value_prediction_train = mean_absolute_error(X_train_prediciton,Y_train)
+  #print('Accuracy score of the training data : ', training_data_accuracy)
+  print('#####################################')
+  print('mean error of the training data : ', mean_aboslute_value_prediction_train)
+  X_test_prediciton = model.predict(X_test)
+  #test_data_accuracy = accuracy_score(X_test_prediciton,Y_test)
+  mean_aboslute_value_prediction_test = mean_absolute_error(X_test_prediciton,Y_test)
+  #print('Accuracy score of the test data : ', test_data_accuracy)
+  print('mean error of the test data : ', mean_aboslute_value_prediction_test)
+  input_data = (17,	20,	38,	33,	100,100,	137	,211,	165,	71,	302,282,	55,	63,	0	,4,	38,	22,	0,1,	2	,0,	2,	1	,94,	60,	25,	100	,9	,10	,0,	0	,1821	,1779	,16	)
+
+  # change the data to a numpy array
+  input_data_as_numpy_array = np.asarray(input_data) # will convert the tuple to an array
+
+  # reshape the array as we are prediciting for one instance 
+  input_data_reshaped = input_data_as_numpy_array.reshape(1,-1) #tell the model not 768 but for only one instance
+
+  # standardize the new input data as well just like we did above 
+  std_data = scaler.transform(input_data_reshaped)
+  #print(std_data)
+  prediction = model.predict(std_data)
+  print('The model used was: ',modely) 
+  print(prediction)
+  print(model.get_params(deep=True))
+  print('#####################################')
+
+
+
+X = nfl_data_without_date.drop('score_home',axis=1)
+Y = nfl_data_without_date['score_home']
+
+X = np.asarray(X)
+Y = np.asarray(Y)
+
+{'C': 1.0, 'class_weight': None, 'dual': False, 'fit_intercept': True, 'intercept_scaling': 1, 'l1_ratio': None, 'max_iter': 10000, 'multi_class': 'auto', 'n_jobs': None, 'penalty': 'l2', 'random_state': None, 'solver': 'lbfgs', 'tol': 0.0001, 'verbose': 0, 'warm_start': False}
+
+
+
+models_list = [LogisticRegression(max_iter=10000),BayesianRidge(),LinearRegression(),SGDRegressor()]
+
+{'base_score': 0.5, 'booster': 'gbtree', 'colsample_bylevel': 1, 'colsample_bynode': 1, 'colsample_bytree': 1, 'gamma': 0, 'importance_type': 'gain', 'learning_rate': 0.1, 'max_delta_step': 0, 'max_depth': 3, 'min_child_weight': 1, 'missing': None, 'n_estimators': 100, 'n_jobs': 1, 'nthread': None, 'objective': 'reg:linear', 'random_state': 0, 'reg_alpha': 0, 'reg_lambda': 1, 'scale_pos_weight': 1, 'seed': None, 'silent': None, 'subsample': 1, 'verbosity': 1}
+
+list_of_C = [0,1,2,3,4,5]
+list_of_D = [100,200,300,400,500]
+list_of_E = [0.25,0.5,1]
+for c in list_of_C:
+  for d in list_of_D:
+    for e in list_of_E:
+        model = XGBRegressor(max_depth=c,n_estimators=d,n_jobs=1,base_score=e)
+        model.fit(X_train,Y_train)
+        X_train_prediciton = model.predict(X_train)
+        #training_data_accuracy = accuracy_score(X_train_prediciton,Y_train)
+        mean_aboslute_value_prediction_train = mean_absolute_error(X_train_prediciton,Y_train)
+          #print('Accuracy score of the training data : ', training_data_accuracy)
+        print('#####################################')
+        print('mean error of the training data : ', mean_aboslute_value_prediction_train)
+        X_test_prediciton = model.predict(X_test)
+          #test_data_accuracy = accuracy_score(X_test_prediciton,Y_test)
+        mean_aboslute_value_prediction_test = mean_absolute_error(X_test_prediciton,Y_test)
+          #print('Accuracy score of the test data : ', test_data_accuracy)
+        print('mean error of the test data : ', mean_aboslute_value_prediction_test)
+        input_data = (17,	20,	38,	33,	100,100,	137	,211,	165,	71,	302,282,	55,	63,	0	,4,	38,	22,	0,1,	2	,0,	2,	1	,94,	60,	25,	100	,9	,10	,0,	0	,1821	,1779	,16	)
+
+          # change the data to a numpy array
+        input_data_as_numpy_array = np.asarray(input_data) # will convert the tuple to an array
+
+          # reshape the array as we are prediciting for one instance 
+        input_data_reshaped = input_data_as_numpy_array.reshape(1,-1) #tell the model not 768 but for only one instance
+
+          # standardize the new input data as well just like we did above 
+        std_data = scaler.transform(input_data_reshaped)
+          #print(std_data)
+        prediction = model.predict(std_data)
+        print(prediction)
+        print(model.get_params(deep=True))
+        print('#####################################')
+
+
+for c in list_of_C:
+  model = BayesianRidge()
+  model.fit(X_train,Y_train)
+  X_train_prediciton = model.predict(X_train)
+  #training_data_accuracy = accuracy_score(X_train_prediciton,Y_train)
+  mean_aboslute_value_prediction_train = mean_absolute_error(X_train_prediciton,Y_train)
+    #print('Accuracy score of the training data : ', training_data_accuracy)
+  print('#####################################')
+  print('mean error of the training data : ', mean_aboslute_value_prediction_train)
+  X_test_prediciton = model.predict(X_test)
+    #test_data_accuracy = accuracy_score(X_test_prediciton,Y_test)
+  mean_aboslute_value_prediction_test = mean_absolute_error(X_test_prediciton,Y_test)
+    #print('Accuracy score of the test data : ', test_data_accuracy)
+  print('mean error of the test data : ', mean_aboslute_value_prediction_test)
+  input_data = (17,	20,	38,	33,	100,100,	137	,211,	165,	71,	302,282,	55,	63,	0	,4,	38,	22,	0,1,	2	,0,	2,	1	,94,	60,	25,	100	,9	,10	,0,	0	,1821	,1779	,16	)
+
+    # change the data to a numpy array
+  input_data_as_numpy_array = np.asarray(input_data) # will convert the tuple to an array
+
+    # reshape the array as we are prediciting for one instance 
+  input_data_reshaped = input_data_as_numpy_array.reshape(1,-1) #tell the model not 768 but for only one instance
+
+    # standardize the new input data as well just like we did above 
+  std_data = scaler.transform(input_data_reshaped)
+    #print(std_data)
+  prediction = model.predict(std_data)
+  print(prediction)
+  print(model.get_params(deep=True))
+  print('#####################################')
+
+list_of_C = [12,15,18,20] # c should be 20 
+for c in list_of_C:
+  model = LogisticRegression(max_iter=10000,C=c)
+  model.fit(X_train,Y_train)
+  X_train_prediciton = model.predict(X_train)
+  #training_data_accuracy = accuracy_score(X_train_prediciton,Y_train)
+  mean_aboslute_value_prediction_train = mean_absolute_error(X_train_prediciton,Y_train)
+    #print('Accuracy score of the training data : ', training_data_accuracy)
+  print('#####################################')
+  print('mean error of the training data : ', mean_aboslute_value_prediction_train)
+  X_test_prediciton = model.predict(X_test)
+    #test_data_accuracy = accuracy_score(X_test_prediciton,Y_test)
+  mean_aboslute_value_prediction_test = mean_absolute_error(X_test_prediciton,Y_test)
+    #print('Accuracy score of the test data : ', test_data_accuracy)
+  print('mean error of the test data : ', mean_aboslute_value_prediction_test)
+  input_data = (17,	20,	38,	33,	100,100,	137	,211,	165,	71,	302,282,	55,	63,	0	,4,	38,	22,	0,1,	2	,0,	2,	1	,94,	60,	25,	100	,9	,10	,0,	0	,1821	,1779	,16	)
+
+    # change the data to a numpy array
+  input_data_as_numpy_array = np.asarray(input_data) # will convert the tuple to an array
+
+    # reshape the array as we are prediciting for one instance 
+  input_data_reshaped = input_data_as_numpy_array.reshape(1,-1) #tell the model not 768 but for only one instance
+
+    # standardize the new input data as well just like we did above 
+  std_data = scaler.transform(input_data_reshaped)
+    #print(std_data)
+  prediction = model.predict(std_data)
+  print(prediction)
+  print(model.get_params(deep=True))
+  print('#####################################')
+
